@@ -1,0 +1,49 @@
+enum DocumentCategory {
+  CONTRACT
+  REPORT
+  STANDARD
+  POLICY
+  MANUAL
+  AUDIT
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  ERROR
+}
+
+model Document {
+  id               String           @id @default(uuid())
+  filename         String
+  originalName     String           @map("original_name")
+  totalPages       Int?             @map("total_pages")
+  category         DocumentCategory @default(MANUAL)
+  status           DocumentStatus   @default(PENDING)
+  size             Int?             @map("size")
+  summary          String?          @map("summary")
+  // Métadonnées générales
+  processingTime   Int?             @map("processing_time") // en millisecondes
+  
+  // Relations
+  mediaId          String           @unique @map("media_id")
+  media            Media            @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  
+  userId           String           @map("user_id")
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Relations vers les entités IA séparées
+  keyPoints        KeyPoint[]
+  actionSuggestions ActionSuggestion[]
+  
+  // Timestamps obligatoires
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  deletedAt        DateTime?        @map("deleted_at")
+  
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([category])
+  @@map("documents")
+}

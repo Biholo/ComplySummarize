@@ -1,0 +1,17 @@
+
+model KeyPoint {
+  id            String           @id @default(uuid())
+  title         String
+
+  // Relations
+  documentId    String           @map("document_id")
+  document      Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  deletedAt     DateTime?        @map("deleted_at")
+  
+  @@index([documentId])
+  @@map("key_points")
+}

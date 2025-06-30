@@ -1,0 +1,33 @@
+enum MediaType {
+  DOCUMENT
+  IMAGE
+  PDF
+  OTHER
+}
+
+model Media {
+  id          String    @id @default(uuid())
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Informations du fichier
+  filename    String?
+  originalName String?  @map("original_name")
+  mimeType    String?   @map("mime_type")
+  size        Int?      // en bytes
+  path        String?   // chemin du fichier sur le serveur
+  url         String?   // URL d'accès au fichier
+  type        MediaType @default(OTHER)
+
+  // Relations
+  uploadedBy   User?   @relation("UserMedia", fields: [uploadedById], references: [id])
+  uploadedById String? @map("uploaded_by_id")
+  
+  // Relation inverse avec Document
+  document     Document?
+  
+
+
+  @@index([uploadedById, createdAt])
+  @@map("media")
+}

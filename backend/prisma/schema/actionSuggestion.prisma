@@ -1,0 +1,28 @@
+
+
+enum ActionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model ActionSuggestion {
+  id            String         @id @default(uuid())
+  title         String
+  isCompleted   Boolean        @default(false)
+  label         String
+
+  // Relations
+  documentId    String         @map("document_id")
+  document      Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  deletedAt     DateTime?      @map("deleted_at")
+  completedAt   DateTime?      @map("completed_at")
+  
+  @@index([documentId])
+  @@map("action_suggestions")
+}
