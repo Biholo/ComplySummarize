@@ -16,7 +16,7 @@ model Media {
   mimeType    String?   @map("mime_type")
   size        Int?      // en bytes
   path        String?   // chemin du fichier sur le serveur
-  url         String?   // URL d'accès au fichier
+  url         String?   @db.Text // URL d'accès au fichier (utilise TEXT pour les URLs longues)
   type        MediaType @default(OTHER)
 
   // Relations

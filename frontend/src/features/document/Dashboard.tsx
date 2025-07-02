@@ -8,6 +8,7 @@ import {
     Eye,
     FileText,
     Filter,
+    Loader2,
     Plus,
     RotateCcw,
     Search,
@@ -17,45 +18,11 @@ import {
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useGetAllDocuments } from '@/api/queries/documentQueries';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button/Button';
 import { Card } from '@/components/ui/Card/Card';
-
-// Données de demo
-const mockDocuments = [
-    {
-        id: '1',
-        name: 'Contrat_Commercial_2024.pdf',
-        uploadDate: '2024-01-15',
-        status: 'completed',
-        size: '2.4 MB',
-        summary: 'Contrat commercial avec clauses de confidentialité...',
-    },
-    {
-        id: '2',
-        name: 'Rapport_Conformite.pdf',
-        uploadDate: '2024-01-14',
-        status: 'processing',
-        size: '1.8 MB',
-        summary: null,
-    },
-    {
-        id: '3',
-        name: 'Norme_ISO_27001.pdf',
-        uploadDate: '2024-01-12',
-        status: 'error',
-        size: '5.2 MB',
-        summary: null,
-    },
-    {
-        id: '4',
-        name: 'Politique_RGPD.pdf',
-        uploadDate: '2024-01-10',
-        status: 'completed',
-        size: '1.2 MB',
-        summary: 'Politique de protection des données personnelles...',
-    },
-];
+import { DocumentStatus } from '@shared/enums/documentEnums';
 
 const getStatusBadge = (status: string) => {
     switch (status) {
@@ -85,15 +52,46 @@ const getStatusIcon = (status: string) => {
 
 export default function Dashboard() {
     const [searchTerm, setSearchTerm] = useState('');
-    const [documents] = useState(mockDocuments);
+    
+    // Utilisation des vraies queries API
+    const { data: documentsResponse, isLoading, error, refetch } = useGetAllDocuments({ 
+        page: 1, 
+        limit: 50,
+        search: searchTerm || undefined 
+    });
+
+    const documents = documentsResponse || [];
 
     const filteredDocuments = documents.filter(doc =>
-        doc.name.toLowerCase().includes(searchTerm.toLowerCase())
+        doc.originalName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const completedCount = documents.filter(doc => doc.status === 'completed').length;
-    const processingCount = documents.filter(doc => doc.status === 'processing').length;
-    const errorCount = documents.filter(doc => doc.status === 'error').length;
+    const completedCount = documents.filter(doc => doc.status === DocumentStatus.COMPLETED).length;
+    const processingCount = documents.filter(doc => doc.status === DocumentStatus.PROCESSING).length;
+    const errorCount = documents.filter(doc => doc.status === DocumentStatus.ERROR).length;
+
+    // Helper pour mapper les statuts
+    const mapStatus = (status: DocumentStatus) => {
+        switch (status) {
+            case DocumentStatus.COMPLETED:
+                return 'completed';
+            case DocumentStatus.PROCESSING:
+                return 'processing';
+            case DocumentStatus.ERROR:
+                return 'error';
+            case DocumentStatus.PENDING:
+                return 'processing';
+            default:
+                return 'unknown';
+        }
+    };
+
+    // Helper pour formater la taille
+    const formatSize = (sizeInBytes?: number) => {
+        if (!sizeInBytes) return 'N/A';
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        return `${sizeInMB.toFixed(1)} MB`;
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -139,7 +137,9 @@ export default function Dashboard() {
                             </div>
                             <div className="ml-3 sm:ml-4">
                                 <h3 className="text-xs sm:text-sm font-medium text-gray-500">Total</h3>
-                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{documents.length}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : documents.length}
+                                </p>
                             </div>
                         </div>
                     </Card>
@@ -151,7 +151,9 @@ export default function Dashboard() {
                             </div>
                             <div className="ml-3 sm:ml-4">
                                 <h3 className="text-xs sm:text-sm font-medium text-gray-500">Terminés</h3>
-                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{completedCount}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : completedCount}
+                                </p>
                             </div>
                         </div>
                     </Card>
@@ -163,7 +165,9 @@ export default function Dashboard() {
                             </div>
                             <div className="ml-3 sm:ml-4">
                                 <h3 className="text-xs sm:text-sm font-medium text-gray-500">En cours</h3>
-                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{processingCount}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : processingCount}
+                                </p>
                             </div>
                         </div>
                     </Card>
@@ -175,7 +179,9 @@ export default function Dashboard() {
                             </div>
                             <div className="ml-3 sm:ml-4">
                                 <h3 className="text-xs sm:text-sm font-medium text-gray-500">Erreurs</h3>
-                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{errorCount}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : errorCount}
+                                </p>
                             </div>
                         </div>
                     </Card>
@@ -215,77 +221,107 @@ export default function Dashboard() {
                 >
                     <Card className="overflow-hidden">
                         <div className="p-4 sm:p-6 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">
-                                Documents récents
-                            </h2>
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900">
+                                    Documents récents
+                                </h2>
+                                {error && (
+                                    <Button variant="ghost" size="sm" onClick={() => refetch()}>
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Réessayer
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                         
                         <div className="divide-y divide-gray-200">
-                            {filteredDocuments.map((document, index) => (
-                                <motion.div
-                                    key={document.id}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
-                                >
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-                                            <div className="flex items-center space-x-3">
-                                                {getStatusIcon(document.status)}
-                                                <div className="min-w-0 flex-1">
-                                                    <h3 className="text-sm font-medium text-gray-900 truncate">
-                                                        {document.name}
-                                                    </h3>
-                                                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
-                                                        <span className="text-xs text-gray-500 flex items-center">
-                                                            <Calendar className="h-3 w-3 mr-1" />
-                                                            {new Date(document.uploadDate).toLocaleDateString('fr-FR')}
-                                                        </span>
-                                                        <span className="text-xs text-gray-500">
-                                                            {document.size}
-                                                        </span>
-                                                        {getStatusBadge(document.status)}
+                            {isLoading ? (
+                                <div className="p-8 text-center">
+                                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+                                    <p className="text-gray-500 mt-2">Chargement des documents...</p>
+                                </div>
+                            ) : error ? (
+                                <div className="p-8 text-center">
+                                    <AlertCircle className="h-8 w-8 mx-auto text-red-500 mb-2" />
+                                    <p className="text-red-600">Erreur lors du chargement des documents</p>
+                                    <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Réessayer
+                                    </Button>
+                                </div>
+                            ) : filteredDocuments.length === 0 ? (
+                                <div className="p-8 text-center">
+                                    <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                                    <p className="text-gray-500">Aucun document trouvé</p>
+                                </div>
+                            ) : (
+                                filteredDocuments.map((document, index) => (
+                                    <motion.div
+                                        key={document.id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                        className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                            <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                                                <div className="flex items-center space-x-3">
+                                                    {getStatusIcon(mapStatus(document.status))}
+                                                    <div className="min-w-0 flex-1">
+                                                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                                                            {document.originalName}
+                                                        </h3>
+                                                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
+                                                            <span className="text-xs text-gray-500 flex items-center">
+                                                                <Calendar className="h-3 w-3 mr-1" />
+                                                                {/* Note: createdAt pas disponible dans DocumentDto, utiliser une date par défaut */}
+                                                                {new Date().toLocaleDateString('fr-FR')}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {formatSize(document.size)}
+                                                            </span>
+                                                            {getStatusBadge(mapStatus(document.status))}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
+                                            
+                                            <div className="flex items-center space-x-2 self-end sm:self-center">
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link to={`/document/${document.id}`} className='flex items-center'>
+                                                        <Eye className="h-4 w-4 sm:mr-2" />
+                                                        <span className="hidden sm:inline">Voir</span>
+                                                    </Link>
+                                                </Button>
+                                                
+                                                {document.status === DocumentStatus.COMPLETED && (
+                                                    <Button variant="ghost" size="sm">
+                                                        <Download className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                
+                                                {document.status === DocumentStatus.ERROR && (
+                                                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                                                        <RotateCcw className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                
+                                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                         
-                                        <div className="flex items-center space-x-2 self-end sm:self-center">
-                                            <Button variant="outline" size="sm" asChild>
-                                                <Link to={`/document/${document.id}`} className='flex items-center'>
-                                                    <Eye className="h-4 w-4 sm:mr-2" />
-                                                    <span className="hidden sm:inline">Voir</span>
-                                                </Link>
-                                            </Button>
-                                            
-                                            {document.status === 'completed' && (
-                                                <Button variant="ghost" size="sm">
-                                                    <Download className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            
-                                            {document.status === 'error' && (
-                                                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
-                                                    <RotateCcw className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            
-                                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    
-                                    {document.summary && (
-                                        <div className="mt-3 p-3 bg-emerald-50 rounded-lg">
-                                            <p className="text-sm text-emerald-800">
-                                                <strong>Synthèse :</strong> {document.summary}
-                                            </p>
-                                        </div>
-                                    )}
-                                </motion.div>
-                            ))}
+                                        {document.summary && (
+                                            <div className="mt-3 p-3 bg-emerald-50 rounded-lg">
+                                                <p className="text-sm text-emerald-800">
+                                                    <strong>Synthèse :</strong> {document.summary}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                ))
+                            )}
                         </div>
                     </Card>
                 </motion.div>

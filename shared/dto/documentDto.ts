@@ -1,10 +1,13 @@
 import { DocumentCategory, DocumentStatus } from "@shared/enums/documentEnums";
 import { Serialize } from '@shared/types/Serialize';
 import { z } from "zod";
+import { actionSuggestionSchema } from "./actionSuggestionDto";
 import { querySchema } from "./commonDto";
+import { keyPointSchema } from "./keyPointDto";
 
 
 export const documentSchema = z.object({
+    id: z.string(),
     filename: z.string(),
     originalName: z.string(),
     totalPages: z.number().optional(),
@@ -16,6 +19,11 @@ export const documentSchema = z.object({
     mediaId: z.string(),
     userId: z.string(),
     url: z.string().optional(),
+    keyPoints: z.array(keyPointSchema),
+    actionSuggestions: z.array(actionSuggestionSchema),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    deletedAt: z.string().optional(),
 });
 
 export type DocumentSchema = z.infer<typeof documentSchema>;

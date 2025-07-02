@@ -1,69 +1,13 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Calendar, FileText, Grid, List, Search } from 'lucide-react';
+import { AlertCircle, ArrowRight, Calendar, FileText, Grid, List, Loader2, RotateCcw, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useGetAllDocuments } from '@/api/queries/documentQueries';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button/Button';
 import { Card } from '@/components/ui/Card/Card';
-
-// Données de demo pour la liste des documents
-const mockDocuments = [
-    {
-        id: '1',
-        name: 'Contrat_Commercial_2024.pdf',
-        uploadDate: '2024-01-15',
-        status: 'completed',
-        category: 'Contrat',
-        summary: 'Contrat commercial avec clauses de confidentialité et conditions de paiement détaillées.',
-        size: '2.4 MB',
-    },
-    {
-        id: '2',
-        name: 'Rapport_Conformite.pdf',
-        uploadDate: '2024-01-14',
-        status: 'processing',
-        category: 'Rapport',
-        summary: null,
-        size: '1.8 MB',
-    },
-    {
-        id: '3',
-        name: 'Norme_ISO_27001.pdf',
-        uploadDate: '2024-01-12',
-        status: 'completed',
-        category: 'Norme',
-        summary: 'Guide de mise en conformité ISO 27001 pour la sécurité de l\'information.',
-        size: '5.2 MB',
-    },
-    {
-        id: '4',
-        name: 'Politique_RGPD.pdf',
-        uploadDate: '2024-01-10',
-        status: 'completed',
-        category: 'Politique',
-        summary: 'Politique de protection des données personnelles conforme au RGPD.',
-        size: '1.2 MB',
-    },
-    {
-        id: '5',
-        name: 'Manuel_Procedures.pdf',
-        uploadDate: '2024-01-08',
-        status: 'error',
-        category: 'Manuel',
-        summary: null,
-        size: '3.7 MB',
-    },
-    {
-        id: '6',
-        name: 'Audit_Interne_2024.pdf',
-        uploadDate: '2024-01-05',
-        status: 'completed',
-        category: 'Audit',
-        summary: 'Rapport d\'audit interne avec recommandations pour l\'amélioration continue.',
-        size: '2.1 MB',
-    },
-];
+import { DocumentCategory, DocumentStatus } from '@shared/enums/documentEnums';
 
 const getStatusBadge = (status: string) => {
     switch (status) {
@@ -99,16 +43,70 @@ const getCategoryColor = (category: string) => {
 
 const Index = () => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-    const filteredDocuments = mockDocuments.filter(doc => {
-        const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
+    // Utilisation des vraies queries API
+    const { data: documentsResponse, isLoading, error, refetch } = useGetAllDocuments({ 
+        page: 1, 
+        limit: 100,
+        search: searchTerm || undefined,
+        category: selectedCategory !== 'all' ? (selectedCategory as DocumentCategory) : undefined
+    });
+
+    const documents = documentsResponse || [];
+
+    const filteredDocuments = documents.filter(doc => {
+        const matchesSearch = doc.originalName.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
 
-    const categories = ['all', ...Array.from(new Set(mockDocuments.map(doc => doc.category)))];
+    // Générer la liste des catégories depuis les vraies données
+    const categories = ['all', ...Array.from(new Set(documents.map(doc => doc.category)))];
+
+    // Helper pour mapper les statuts
+    const mapStatus = (status: DocumentStatus) => {
+        switch (status) {
+            case DocumentStatus.COMPLETED:
+                return 'completed';
+            case DocumentStatus.PROCESSING:
+                return 'processing';
+            case DocumentStatus.ERROR:
+                return 'error';
+            case DocumentStatus.PENDING:
+                return 'processing';
+            default:
+                return 'unknown';
+        }
+    };
+
+    // Helper pour formater la taille
+    const formatSize = (sizeInBytes?: number) => {
+        if (!sizeInBytes) return 'N/A';
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        return `${sizeInMB.toFixed(1)} MB`;
+    };
+
+    // Helper pour formater le nom de catégorie
+    const formatCategoryName = (category: DocumentCategory) => {
+        switch (category) {
+            case DocumentCategory.CONTRACT:
+                return 'Contrat';
+            case DocumentCategory.REPORT:
+                return 'Rapport';
+            case DocumentCategory.STANDARD:
+                return 'Norme';
+            case DocumentCategory.POLICY:
+                return 'Politique';
+            case DocumentCategory.MANUAL:
+                return 'Manuel';
+            case DocumentCategory.AUDIT:
+                return 'Audit';
+            default:
+                return category;
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -168,10 +166,11 @@ const Index = () => {
                                     value={selectedCategory}
                                     onChange={(e) => setSelectedCategory(e.target.value)}
                                     className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors w-full sm:w-auto"
+                                    disabled={isLoading}
                                 >
                                     {categories.map(category => (
                                         <option key={category} value={category}>
-                                            {category === 'all' ? 'Toutes les catégories' : category}
+                                            {category === 'all' ? 'Toutes les catégories' : formatCategoryName(category as DocumentCategory)}
                                         </option>
                                     ))}
                                 </select>
@@ -200,127 +199,163 @@ const Index = () => {
                                 </div>
                             </div>
                         </div>
+                        
+                        {/* Error state in filters */}
+                        {error && (
+                            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+                                <div className="flex items-center text-red-600">
+                                    <AlertCircle className="h-4 w-4 mr-2" />
+                                    <span className="text-sm">Erreur lors du chargement des documents</span>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                                    <RotateCcw className="h-4 w-4 mr-2" />
+                                    Réessayer
+                                </Button>
+                            </div>
+                        )}
                     </Card>
                 </motion.div>
 
+                {/* Loading State */}
+                {isLoading && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        <Card className="p-8 sm:p-12 text-center">
+                            <Loader2 className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400 mb-4 sm:mb-6 animate-spin" />
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                                Chargement des documents...
+                            </h3>
+                            <p className="text-gray-500">
+                                Veuillez patienter pendant que nous récupérons vos documents
+                            </p>
+                        </Card>
+                    </motion.div>
+                )}
+
                 {/* Documents */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    {viewMode === 'grid' ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                            {filteredDocuments.map((document, index) => (
-                                <motion.div
-                                    key={document.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 + index * 0.1 }}
-                                >
-                                    <Card hoverable className="p-4 sm:p-6 h-full flex flex-col">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="p-2 sm:p-3 bg-emerald-50 rounded-xl">
-                                                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
-                                            </div>
-                                            {getStatusBadge(document.status)}
-                                        </div>
-                                        
-                                        <div className="flex-1">
-                                            <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 text-sm sm:text-base">
-                                                {document.name}
-                                            </h3>
-                                            
-                                            <div className="flex items-center text-xs sm:text-sm text-gray-500 mb-3">
-                                                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                                {new Date(document.uploadDate).toLocaleDateString('fr-FR')}
-                                                <span className="mx-2">•</span>
-                                                <span>{document.size}</span>
-                                            </div>
-                                            
-                                            <div className={`inline-flex items-center rounded-full px-2 sm:px-3 py-1 text-xs font-medium ring-1 ring-inset mb-4 ${getCategoryColor(document.category)}`}>
-                                                {document.category}
-                                            </div>
-                                            
-                                            {document.summary && (
-                                                <p className="text-xs sm:text-sm text-gray-600 line-clamp-3 mb-4">
-                                                    {document.summary}
-                                                </p>
-                                            )}
-                                        </div>
-                                        
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="w-full group text-xs sm:text-sm"
-                                            asChild
-                                        >
-                                            <Link to={`/document/${document.id}`} className='flex items-center'>
-                                                <span className="hidden sm:inline">Voir le détail</span>
-                                                <span className="sm:hidden">Voir</span>
-                                                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                                            </Link>
-                                        </Button>
-                                    </Card>
-                                </motion.div>
-                            ))}
-                        </div>
-                    ) : (
-                        <Card className="overflow-hidden">
-                            <div className="divide-y divide-gray-200">
+                {!isLoading && !error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        {viewMode === 'grid' ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                 {filteredDocuments.map((document, index) => (
                                     <motion.div
                                         key={document.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.3 + index * 0.05 }}
-                                        className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 + index * 0.1 }}
                                     >
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                            <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-                                                <div className="p-2 bg-emerald-50 rounded-lg flex-shrink-0">
-                                                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                                        <Card hoverable className="p-4 sm:p-6 h-full flex flex-col">
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="p-2 sm:p-3 bg-emerald-50 rounded-xl">
+                                                    <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-1">
-                                                        <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                                                            {document.name}
-                                                        </h3>
-                                                        {getStatusBadge(document.status)}
-                                                    </div>
-                                                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
-                                                        <span className="flex items-center">
-                                                            <Calendar className="h-3 w-3 mr-1" />
-                                                            {new Date(document.uploadDate).toLocaleDateString('fr-FR')}
-                                                        </span>
-                                                        <span>{document.size}</span>
-                                                        <div className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${getCategoryColor(document.category)}`}>
-                                                            {document.category}
-                                                        </div>
-                                                    </div>
-                                                    {document.summary && (
-                                                        <p className="text-xs sm:text-sm text-gray-600 mt-2 line-clamp-2">
-                                                            {document.summary}
-                                                        </p>
-                                                    )}
-                                                </div>
+                                                {getStatusBadge(mapStatus(document.status))}
                                             </div>
-                                            <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
-                                                <Link to={`/document/${document.id}`}>
-                                                    <span className="hidden sm:inline">Voir</span>
+                                            
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 text-sm sm:text-base">
+                                                    {document.originalName}
+                                                </h3>
+                                                
+                                                <div className="flex items-center text-xs sm:text-sm text-gray-500 mb-3">
+                                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                                    {/* Note: createdAt pas disponible dans DocumentDto */}
+                                                    {new Date().toLocaleDateString('fr-FR')}
+                                                    <span className="mx-2">•</span>
+                                                    <span>{formatSize(document.size)}</span>
+                                                </div>
+                                                
+                                                <div className={`inline-flex items-center rounded-full px-2 sm:px-3 py-1 text-xs font-medium ring-1 ring-inset mb-4 ${getCategoryColor(formatCategoryName(document.category))}`}>
+                                                    {formatCategoryName(document.category)}
+                                                </div>
+                                                
+                                                {document.summary && (
+                                                    <p className="text-xs sm:text-sm text-gray-600 line-clamp-3 mb-4">
+                                                        {document.summary}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="w-full group text-xs sm:text-sm"
+                                                asChild
+                                            >
+                                                <Link to={`/document/${document.id}`} className='flex items-center'>
+                                                    <span className="hidden sm:inline">Voir le détail</span>
                                                     <span className="sm:hidden">Voir</span>
+                                                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                                                 </Link>
                                             </Button>
-                                        </div>
+                                        </Card>
                                     </motion.div>
                                 ))}
                             </div>
-                        </Card>
-                    )}
-                </motion.div>
+                        ) : (
+                            <Card className="overflow-hidden">
+                                <div className="divide-y divide-gray-200">
+                                    {filteredDocuments.map((document, index) => (
+                                        <motion.div
+                                            key={document.id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: 0.3 + index * 0.05 }}
+                                            className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                                <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                                                    <div className="p-2 bg-emerald-50 rounded-lg flex-shrink-0">
+                                                        <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-1">
+                                                            <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                                                                {document.originalName}
+                                                            </h3>
+                                                            {getStatusBadge(mapStatus(document.status))}
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                                                            <span className="flex items-center">
+                                                                <Calendar className="h-3 w-3 mr-1" />
+                                                                {new Date().toLocaleDateString('fr-FR')}
+                                                            </span>
+                                                            <span>{formatSize(document.size)}</span>
+                                                            <div className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${getCategoryColor(formatCategoryName(document.category))}`}>
+                                                                {formatCategoryName(document.category)}
+                                                            </div>
+                                                        </div>
+                                                        {document.summary && (
+                                                            <p className="text-xs sm:text-sm text-gray-600 mt-2 line-clamp-2">
+                                                                {document.summary}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
+                                                    <Link to={`/document/${document.id}`}>
+                                                        <span className="hidden sm:inline">Voir</span>
+                                                        <span className="sm:hidden">Voir</span>
+                                                    </Link>
+                                                </Button>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </Card>
+                        )}
+                    </motion.div>
+                )}
 
                 {/* Empty State */}
-                {filteredDocuments.length === 0 && (
+                {!isLoading && !error && filteredDocuments.length === 0 && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import {
+    AlertCircle,
     AlertTriangle,
     ArrowLeft,
     BookOpen,
@@ -9,61 +10,21 @@ import {
     Download,
     FileText,
     Lightbulb,
-    Share2,
+    Loader2,
+    RotateCcw,
+    Eye,
     Tag,
     Target,
     User
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 
+import { useGetDocumentById } from '@/api/queries/documentQueries';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button/Button';
 import { Card } from '@/components/ui/Card/Card';
-
-// Mock data pour démonstration
-const mockDocument = {
-    id: '1',
-    name: 'Contrat_Commercial_2024.pdf',
-    uploadDate: '2024-01-15',
-    status: 'completed',
-    size: '2.4 MB',
-    summary: 'Ce contrat commercial établit les termes et conditions pour la fourniture de services de consulting en technologie. Il inclut des clauses de confidentialité strictes, des conditions de paiement échelonnées sur 12 mois, et des dispositions spécifiques concernant la propriété intellectuelle. Le document définit également les responsabilités de chaque partie, les modalités de résiliation anticipée, et les procédures de résolution de conflits. Une attention particulière est portée aux aspects de compliance réglementaire et aux exigences de reporting mensuel.',
-    keyPoints: [
-        'Clause de confidentialité valable 5 ans après la fin du contrat',
-        'Paiement échelonné sur 12 mois avec possibilité de report en cas de force majeure',
-        'Transfert de propriété intellectuelle limité aux développements spécifiques',
-        'Obligation de compliance avec les réglementations RGPD et sectorielles',
-        'Clause de résiliation anticipée avec préavis de 30 jours minimum'
-    ],
-    actionSuggestions: [
-        {
-            action: 'Vérifier la conformité des clauses RGPD avec le DPO',
-            priority: 'high',
-            category: 'Legal'
-        },
-        {
-            action: 'Valider les conditions de paiement avec le service comptabilité',
-            priority: 'medium',
-            category: 'Finance'
-        },
-        {
-            action: 'Organiser une revue avec l\'équipe technique pour la PI',
-            priority: 'medium',
-            category: 'Technique'
-        },
-        {
-            action: 'Planifier les points de reporting mensuel',
-            priority: 'low',
-            category: 'Suivi'
-        }
-    ],
-    metadata: {
-        author: 'Service Juridique',
-        category: 'Contrat Commercial',
-        pages: 24,
-        language: 'Français'
-    }
-};
+import { DocumentCategory, DocumentStatus } from '@shared/enums/documentEnums';
+import { useAuthStore } from '@/stores/authStore';
 
 const getPriorityBadge = (priority: string) => {
     switch (priority) {
@@ -92,8 +53,119 @@ const getPriorityIcon = (priority: string) => {
 };
 
 export default function DocumentDetail() {
-    const { id } = useParams();
-    const document = mockDocument; // Dans un vrai projet, on ferait un fetch avec l'id
+    const { id } = useParams<{ id: string }>();
+    
+    // Utilisation de la vraie query API
+    const { data: documentResponse, isLoading, error, refetch } = useGetDocumentById(id || '', !!id);
+    const { user } = useAuthStore();
+    const document = documentResponse;
+
+    // Helper pour mapper les statuts
+    const mapStatus = (status: DocumentStatus) => {
+        switch (status) {
+            case DocumentStatus.COMPLETED:
+                return { label: 'Analysé', variant: 'success' as const };
+            case DocumentStatus.PROCESSING:
+                return { label: 'En cours', variant: 'processing' as const };
+            case DocumentStatus.ERROR:
+                return { label: 'Erreur', variant: 'error' as const };
+            case DocumentStatus.PENDING:
+                return { label: 'En attente', variant: 'secondary' as const };
+            default:
+                return { label: 'Inconnu', variant: 'secondary' as const };
+        }
+    };
+
+    // Helper pour formater le nom de catégorie
+    const formatCategoryName = (category: DocumentCategory) => {
+        switch (category) {
+            case DocumentCategory.CONTRACT:
+                return 'Contrat Commercial';
+            case DocumentCategory.REPORT:
+                return 'Rapport';
+            case DocumentCategory.STANDARD:
+                return 'Norme';
+            case DocumentCategory.POLICY:
+                return 'Politique';
+            case DocumentCategory.MANUAL:
+                return 'Manuel';
+            case DocumentCategory.AUDIT:
+                return 'Audit';
+            default:
+                return category;
+        }
+    };
+
+    // Helper pour formater la taille
+    const formatSize = (sizeInBytes?: number) => {
+        if (!sizeInBytes) return 'N/A';
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        return `${sizeInMB.toFixed(1)} MB`;
+    };
+
+    // Helper pour la priorité des actions (par défaut moyenne si pas spécifiée)
+    const getActionPriority = (index: number) => {
+        // Alternance des priorités pour la démo
+        const priorities = ['high', 'medium', 'low'];
+        return priorities[index % 3];
+    };
+
+    // Helper pour les catégories d'actions (par défaut basée sur le type)
+    const getActionCategory = (index: number, documentCategory: DocumentCategory) => {
+        const categories = ['Legal', 'Finance', 'Technique', 'Suivi'];
+        return categories[index % 4];
+    };
+
+    // États de loading et d'erreur
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+                <div className="max-w-5xl mx-auto">
+                    <Card className="p-8 sm:p-12 text-center">
+                        <Loader2 className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400 mb-4 sm:mb-6 animate-spin" />
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                            Chargement du document...
+                        </h3>
+                        <p className="text-gray-500">
+                            Veuillez patienter pendant que nous récupérons les détails
+                        </p>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !document) {
+        return (
+            <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+                <div className="max-w-5xl mx-auto">
+                    <Card className="p-8 sm:p-12 text-center">
+                        <AlertCircle className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-red-500 mb-4 sm:mb-6" />
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                            Document non trouvé
+                        </h3>
+                        <p className="text-gray-500 mb-6">
+                            Le document demandé n'existe pas ou n'est plus disponible
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Button variant="outline" onClick={() => refetch()}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Réessayer
+                            </Button>
+                            <Button asChild>
+                                <Link to="/dashboard">
+                                    <ArrowLeft className="h-4 w-4 mr-2" />
+                                    Retour au dashboard
+                                </Link>
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
+
+    const statusInfo = mapStatus(document.status);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -115,14 +187,23 @@ export default function DocumentDetail() {
                     </div>
                     
                     <div className="flex items-center space-x-3">
-                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                            <Share2 className="h-4 w-4 mr-2" />
-                            <span className="hidden sm:inline">Partager</span>
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                            <Download className="h-4 w-4 mr-2" />
-                            <span className="hidden sm:inline">Télécharger</span>
-                        </Button>
+                
+                        {document.url && (
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
+                                    <a href={document.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        <span className="hidden sm:inline">Voir</span>
+                                    </a>
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
+                                    <a href={document.url} download={document.originalName} className="flex items-center">
+                                        <Download className="h-4 w-4 mr-2" />
+                                        <span className="hidden sm:inline">Télécharger</span>
+                                    </a>
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
 
@@ -141,29 +222,37 @@ export default function DocumentDetail() {
                             <div className="flex-1 min-w-0">
                                 <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-3">
                                     <h1 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
-                                        {document.name}
+                                        {document.originalName}
                                     </h1>
-                                    <Badge variant="success" className="self-start">Analysé</Badge>
+                                    <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                                 </div>
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-500">
                                     <span className="flex items-center">
                                         <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
                                         <span className="truncate">
-                                            Uploadé le {new Date(document.uploadDate).toLocaleDateString('fr-FR')}
+                                                {
+                                                    new Date(document.createdAt).toLocaleDateString('fr-FR', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric'
+                                                    })
+                                                }
                                         </span>
                                     </span>
                                     <span className="flex items-center">
                                         <User className="h-4 w-4 mr-2 flex-shrink-0" />
-                                        <span className="truncate">{document.metadata.author}</span>
+                                        <span className="truncate">{user?.firstName} {user?.lastName}</span>
                                     </span>
                                     <span className="flex items-center">
                                         <Tag className="h-4 w-4 mr-2 flex-shrink-0" />
-                                        <span className="truncate">{document.metadata.category}</span>
+                                        <span className="truncate">{formatCategoryName(document.category)}</span>
                                     </span>
                                     <span className="flex items-center">
                                         <BookOpen className="h-4 w-4 mr-2 flex-shrink-0" />
-                                        <span className="truncate">{document.metadata.pages} pages</span>
+                                        <span className="truncate">
+                                            {document.totalPages ? `${document.totalPages} pages` : formatSize(document.size)}
+                                        </span>
                                     </span>
                                 </div>
                             </div>
@@ -172,103 +261,135 @@ export default function DocumentDetail() {
                 </motion.div>
 
                 {/* Summary */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    <Card className="p-6 sm:p-8">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                            <div className="p-2 bg-blue-50 rounded-lg mr-3 flex-shrink-0">
-                                <FileText className="h-5 w-5 text-blue-600" />
+                {document.summary && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        <Card className="p-6 sm:p-8">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                <div className="p-2 bg-blue-50 rounded-lg mr-3 flex-shrink-0">
+                                    <FileText className="h-5 w-5 text-blue-600" />
+                                </div>
+                                Résumé automatique
+                            </h2>
+                            <div className="prose max-w-none">
+                                <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                                    {document.summary}
+                                </p>
                             </div>
-                            Résumé automatique
-                        </h2>
-                        <div className="prose max-w-none">
-                            <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
-                                {document.summary}
-                            </p>
-                        </div>
-                    </Card>
-                </motion.div>
+                        </Card>
+                    </motion.div>
+                )}
 
                 {/* Key Points */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                >
-                    <Card className="p-6 sm:p-8">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                            <div className="p-2 bg-emerald-50 rounded-lg mr-3 flex-shrink-0">
-                                <Target className="h-5 w-5 text-emerald-600" />
+                {document.keyPoints && document.keyPoints.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                    >
+                        <Card className="p-6 sm:p-8">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                                <div className="p-2 bg-emerald-50 rounded-lg mr-3 flex-shrink-0">
+                                    <Target className="h-5 w-5 text-emerald-600" />
+                                </div>
+                                Points clés identifiés
+                            </h2>
+                            <div className="space-y-4">
+                                {document.keyPoints.map((point, index) => (
+                                    <motion.div
+                                        key={point.id || index}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.4 + index * 0.1 }}
+                                        className="flex items-start space-x-3 p-3 sm:p-4 bg-emerald-50 rounded-xl"
+                                    >
+                                        <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                                        <p className="text-emerald-800 font-medium text-sm sm:text-base">{point.title}</p>
+                                    </motion.div>
+                                ))}
                             </div>
-                            Points clés identifiés
-                        </h2>
-                        <div className="space-y-4">
-                            {document.keyPoints.map((point, index) => (
-                                <motion.div
-                                    key={index}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.4 + index * 0.1 }}
-                                    className="flex items-start space-x-3 p-3 sm:p-4 bg-emerald-50 rounded-xl"
-                                >
-                                    <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                                    <p className="text-emerald-800 font-medium text-sm sm:text-base">{point}</p>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </Card>
-                </motion.div>
+                        </Card>
+                    </motion.div>
+                )}
 
                 {/* Action Suggestions */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                >
-                    <Card className="p-6 sm:p-8">
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                            <div className="p-2 bg-yellow-50 rounded-lg mr-3 flex-shrink-0">
-                                <Lightbulb className="h-5 w-5 text-yellow-600" />
-                            </div>
-                            Suggestions d'actions
-                        </h2>
-                        <div className="space-y-4">
-                            {document.actionSuggestions.map((suggestion, index) => (
-                                <motion.div
-                                    key={index}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.5 + index * 0.1 }}
-                                    className="p-3 sm:p-4 border border-gray-200 rounded-xl hover:shadow-sm transition-shadow"
-                                >
-                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                        <div className="flex items-start space-x-3 flex-1 min-w-0">
-                                            {getPriorityIcon(suggestion.priority)}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-gray-900 mb-2 text-sm sm:text-base">
-                                                    {suggestion.action}
-                                                </p>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <Badge variant="secondary" className="text-xs">
-                                                        {suggestion.category}
-                                                    </Badge>
-                                                    {getPriorityBadge(suggestion.priority)}
+                {document.actionSuggestions && document.actionSuggestions.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                    >
+                        <Card className="p-6 sm:p-8">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                                <div className="p-2 bg-yellow-50 rounded-lg mr-3 flex-shrink-0">
+                                    <Lightbulb className="h-5 w-5 text-yellow-600" />
+                                </div>
+                                Suggestions d'actions
+                            </h2>
+                            <div className="space-y-4">
+                                {document.actionSuggestions.map((suggestion, index) => {
+                                    const priority = getActionPriority(index);
+                                    const category = suggestion.label || getActionCategory(index, document.category);
+                                    
+                                    return (
+                                        <motion.div
+                                            key={suggestion.id || index}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: 0.5 + index * 0.1 }}
+                                            className="p-3 sm:p-4 border border-gray-200 rounded-xl hover:shadow-sm transition-shadow"
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                                <div className="flex items-start space-x-3 flex-1 min-w-0">
+                                                    {getPriorityIcon(priority)}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-gray-900 mb-2 text-sm sm:text-base">
+                                                            {suggestion.title}
+                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                {category}
+                                                            </Badge>
+                                                            {getPriorityBadge(priority)}
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                                                    <span className="hidden sm:inline">Marquer comme fait</span>
+                                                    <span className="sm:hidden">Fait</span>
+                                                </Button>
                                             </div>
-                                        </div>
-                                        <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                                            <span className="hidden sm:inline">Marquer comme fait</span>
-                                            <span className="sm:hidden">Fait</span>
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </Card>
-                </motion.div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+                    </motion.div>
+                )}
+
+                {/* Empty state si pas de contenu analysé */}
+                {document.status === DocumentStatus.COMPLETED && 
+                 (!document.summary && (!document.keyPoints || document.keyPoints.length === 0) && 
+                  (!document.actionSuggestions || document.actionSuggestions.length === 0)) && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        <Card className="p-8 sm:p-12 text-center">
+                            <FileText className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400 mb-4 sm:mb-6" />
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                                Analyse terminée
+                            </h3>
+                            <p className="text-gray-500">
+                                Le document a été analysé mais aucun contenu spécifique n'a été extrait
+                            </p>
+                        </Card>
+                    </motion.div>
+                )}
             </div>
         </div>
     );
