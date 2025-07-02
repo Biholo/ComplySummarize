@@ -29,12 +29,12 @@ APOCALIPSSI est une application web moderne qui permet d'uploader des documents 
 - **Prisma** - ORM pour PostgreSQL
 - **JWT** - Authentification
 - **Zod** - Validation des données
-- **Winston** - Logging
+- **Loki + Grafana** - Logging
 
 ### Services Externes
 - **Claude AI** - Analyse de documents
 - **MinIO** - Stockage d'objets
-- **PostgreSQL** - Base de données
+- **MySQL** - Base de données
 
 ## 🚀 Installation Rapide
 
@@ -116,7 +116,7 @@ pnpm run dev
 - **Frontend** : http://localhost:3000
 - **Backend API** : http://localhost:3001
 - **MinIO Console** : http://localhost:9001
-- **PostgreSQL** : localhost:5432
+- **MySQL** : localhost:5432
 
 ### 8. Arrêt des services
 ```bash
