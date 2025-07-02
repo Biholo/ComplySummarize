@@ -1,4 +1,4 @@
-# APOCALIPSSI 🤖📄
+# ComplySummarize
 
 > **Plateforme d'analyse intelligente de documents avec IA**
 
