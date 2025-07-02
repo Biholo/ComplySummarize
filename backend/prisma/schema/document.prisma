@@ -1,11 +1,3 @@
-enum DocumentCategory {
-  CONTRACT
-  REPORT
-  STANDARD
-  POLICY
-  MANUAL
-  AUDIT
-}
 
 enum DocumentStatus {
   PENDING
@@ -19,10 +11,10 @@ model Document {
   filename         String
   originalName     String           @map("original_name")
   totalPages       Int?             @map("total_pages")
-  category         DocumentCategory @default(MANUAL)
+  category         String
   status           DocumentStatus   @default(PENDING)
   size             Int?             @map("size")
-  summary          String?          @map("summary")
+  summary          String?          @map("summary") @db.Text
   // Métadonnées générales
   processingTime   Int?             @map("processing_time") // en millisecondes
   

@@ -11,6 +11,8 @@ import { minioService } from '@/services/minioService';
 import { PromptService } from '@/services/promptService';
 import { DocumentDto, documentSchema, FilterDocumentDto, filterDocumentSchema, IdParams, idParamsSchema } from '@shared/dto';
 import { DocumentCategory, DocumentStatus } from '@shared/enums/documentEnums';
+import { keyPointRepository } from '@/repositories/keyPointRepository';
+import { actionSuggestionRepository } from '@/repositories/actionSuggestionRepository';
 
 class DocumentController {
     private logger = logger.child({
@@ -54,140 +56,180 @@ class DocumentController {
     public create = asyncHandler<unknown, unknown, unknown, DocumentDto>({
         logger: this.logger,
         handler: async (request: any, reply: any): Promise<ApiResponse<DocumentDto | void> | void> => {
-            console.log('request.body :', request.body);
-            // ==========================================
-            // ÉTAPE 1: RÉCUPÉRATION DU FICHIER MULTIPART
-            // ==========================================
-            const fileData = request.body?.file;
-            if (!fileData) {
-                return reply.code(400).send({
-                    success: false,
-                    message: 'Aucun fichier fourni'
-                });
-            }
-
-            // ==========================================
-            // ÉTAPE 2: VALIDATION DU TYPE DE FICHIER
-            // ==========================================
-            const allowedMimeTypes = [
-                'application/pdf', 
-                'text/plain', 
-                'application/msword', 
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            ];
-            
-            if (!allowedMimeTypes.includes(fileData.mimetype)) {
-                return reply.code(400).send({
-                    success: false,
-                    message: 'Type de fichier non supporté. Formats acceptés: PDF, TXT, DOC, DOCX'
-                });
-            }
-
-            this.logger.info('📄 Fichier reçu pour upload', { 
-                filename: fileData.filename, 
-                mimetype: fileData.mimetype,
-                size: fileData._buf?.length || 0 
-            });
-
-            // ==========================================
-            // ÉTAPE 3: UPLOAD VERS MINIO
-            // ==========================================
-            const uploadedFileName = await minioService.uploadFile(fileData);
-            this.logger.info('☁️ Fichier uploadé sur MinIO', { 
-                originalName: fileData.filename, 
-                storedName: uploadedFileName 
-            });
-
-            // ==========================================
-            // ÉTAPE 4: OBTENIR L'URL DU FICHIER
-            // ==========================================
-            const fileUrl = await minioService.getFile(uploadedFileName);
-
-            // ==========================================
-            const prompt = PromptService.generateCompleteAnalysisPrompt(fileData.filename || '');
-
-            const media = await mediaRepository.create({
-                url: fileUrl,
-                filename: uploadedFileName,
-                originalName: fileData.filename || '',
-                mimeType: fileData.mimetype,
-                size: fileData._buf?.length || 0,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            });
-
-            // ==========================================
-            // ÉTAPE 6: CRÉER LE DOCUMENT EN BASE
-            // ==========================================
-            const document = await documentRepository.create({
-                filename: uploadedFileName,
-                originalName: fileData.filename || '',
-                category: DocumentCategory.REPORT,
-                status: DocumentStatus.PENDING,
-                user: {
-                    connect: {
-                        id: request.user?.id || 'system'
-                    }
-                },
-                media: {
-                    connect: {
-                        id: media.id
-                    }
+            try {
+                console.log('request.body :', request.body);
+                // Démarrage du compteur de temps de traitement
+                const startTime = Date.now();
+                // ==========================================
+                // ÉTAPE 1: RÉCUPÉRATION DU FICHIER MULTIPART
+                // ==========================================
+                const fileData = request.body?.file;
+                if (!fileData) {
+                    return reply.code(400).send({
+                        success: false,
+                        message: 'Aucun fichier fourni'
+                    });
                 }
-            });
 
-            this.logger.info('✅ Document créé en base', { 
-                documentId: document.id,
-                status: document.status 
-            });
+                // ==========================================
+                // ÉTAPE 2: VALIDATION DU TYPE DE FICHIER
+                // ==========================================
+                const allowedMimeTypes = [
+                    'application/pdf', 
+                    'text/plain', 
+                    'application/msword', 
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                ];
+                
+                if (!allowedMimeTypes.includes(fileData.mimetype)) {
+                    return reply.code(400).send({
+                        success: false,
+                        message: 'Type de fichier non supporté. Formats acceptés: PDF, TXT, DOC, DOCX'
+                    });
+                }
 
-            // ==========================================
-            // ÉTAPE 7: ANALYSE AVEC CLAUDE
-            // ==========================================
-            const pdfBuffer = await minioService.downloadFile(fileUrl);
-            const pdfBase64 = pdfBuffer.toString('base64');
+                this.logger.info('📄 Fichier reçu pour upload', { 
+                    filename: fileData.filename, 
+                    mimetype: fileData.mimetype,
+                    size: fileData._buf?.length || 0 
+                });
 
-            const analysisResponse = await claudeService.analyzeDocument(prompt, pdfBase64);
+                // ==========================================
+                // ÉTAPE 3: UPLOAD VERS MINIO
+                // ==========================================
+                const uploadedFileName = await minioService.uploadFile(fileData);
+                this.logger.info('☁️ Fichier uploadé sur MinIO', { 
+                    originalName: fileData.filename, 
+                    storedName: uploadedFileName 
+                });
 
-            const analysis = JSON.parse(analysisResponse);
+                // ==========================================
+                // ÉTAPE 4: OBTENIR L'URL DU FICHIER
+                // ==========================================
+                const fileUrl = await minioService.getFile(uploadedFileName);
 
-            // ==========================================
-            // ÉTAPE 8: MISE À JOUR FINALE DU DOCUMENT
-            // ==========================================
-            const finalDocument = await documentRepository.update(document.id, {
-                status: DocumentStatus.COMPLETED,
-                summary: analysis.summary,
-                keyPoints: {
-                    create: analysis.keyPoints.map((keyPoint: any) => ({
+                // ==========================================
+                const prompt = PromptService.generateCompleteAnalysisPrompt(fileData.filename || '');
+
+                const media = await mediaRepository.create({
+                    url: fileUrl,
+                    filename: uploadedFileName,
+                    originalName: fileData.filename || '',
+                    mimeType: fileData.mimetype,
+                    size: fileData._buf?.length || 0,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    uploadedBy: {
+                        connect: {
+                            id: request.user?.id
+                        }
+                    }
+                });
+
+                // ==========================================
+                // ÉTAPE 6: CRÉER LE DOCUMENT EN BASE
+                // ==========================================
+                const document = await documentRepository.create({
+                    filename: uploadedFileName,
+                    originalName: fileData.filename || '',
+                    category: DocumentCategory.REPORT,
+                    status: DocumentStatus.PENDING,
+                    user: {
+                        connect: {
+                            id: request.user?.id || 'system'
+                        }
+                    },
+                    media: {
+                        connect: {
+                            id: media.id
+                        }
+                    }
+                });
+
+                this.logger.info('✅ Document créé en base', { 
+                    documentId: document.id,
+                    status: document.status 
+                });
+
+                // ==========================================
+                // ÉTAPE 7: ANALYSE AVEC CLAUDE
+                // ==========================================
+                const pdfBuffer = await minioService.downloadFile(fileUrl);
+                const pdfBase64 = pdfBuffer.toString('base64');
+
+                const analysisResponse = await claudeService.analyzeDocument(prompt, pdfBase64);
+                console.log('analysisResponse :', analysisResponse);
+
+                const analysis = JSON.parse(analysisResponse);
+
+                console.log('analysis :', analysis);
+
+               
+                for (const keyPoint of analysis.keyPoints) {
+                    await keyPointRepository.create({
                         title: keyPoint.title,
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }))
-                },
-                actionSuggestions: {
-                    create: analysis.actionSuggestions.map((actionSuggestion: any) => ({
+                        document: {
+                            connect: {
+                                id: document.id
+                            }
+                        }
+                    });
+                }
+
+                for (const actionSuggestion of analysis.actionSuggestions) {
+                    await actionSuggestionRepository.create({
                         title: actionSuggestion.title,
+                        document: {
+                            connect: {
+                                id: document.id
+                            }
+                        },
                         label: actionSuggestion.label,
                         createdAt: new Date(),
-                        updatedAt: new Date()
-                    }))
-                },
-                category: analysis.category || DocumentCategory.REPORT,
-                totalPages: analysis.totalPages || undefined,
-                processingTime: Date.now()
-            });
+                        updatedAt: new Date(),
+                    });
+                }
 
-            this.logger.info('🎉 Document traité avec succès', { 
-                documentId: finalDocument.id,
-                finalStatus: finalDocument.status 
-            });
+                // ==========================================
+                // ÉTAPE 8: MISE À JOUR FINALE DU DOCUMENT
+                // ==========================================
+                const finalDocument = await documentRepository.update(document.id, {
+                    status: DocumentStatus.COMPLETED,
+                    summary: analysis.summary,
+                    category: analysis.category || DocumentCategory.REPORT,
+                    totalPages: analysis.totalPages || undefined,
+                    processingTime: Math.round((Date.now() - startTime) * 1000)
+                });
 
-            // ==========================================
-            // ÉTAPE 12: TRANSFORMATION ET RÉPONSE
-            // ==========================================
-            
-            const documentDto = documentTransformer.toDocumentDto(finalDocument);
-            return jsonResponse(reply, 'Document uploadé et analysé avec succès', documentDto, 201);
+                this.logger.info('🎉 Document traité avec succès', { 
+                    documentId: finalDocument.id,
+                    finalStatus: finalDocument.status 
+                });
+
+                // ==========================================
+                // ÉTAPE 12: TRANSFORMATION ET RÉPONSE
+                // ==========================================
+                
+                const documentDto = documentTransformer.toDocumentDto(finalDocument);
+                return jsonResponse(reply, 'Document uploadé et analysé avec succès', documentDto, 201);
+
+            } catch (error) {
+                this.logger.error('❌ Erreur lors du traitement du document', { 
+                    error: error instanceof Error ? error.message : 'Erreur inconnue',
+                    stack: error instanceof Error ? error.stack : undefined,
+                    userId: request.user?.id
+                });
+                console.log('error :', error);
+
+                // En cas d'erreur, on essaie de nettoyer les ressources créées
+                // TODO: Ajouter la logique de nettoyage si nécessaire
+
+                return reply.code(500).send({
+                    success: false,
+                    message: 'Erreur lors du traitement du document',
+                    error: error instanceof Error ? error.message : 'Erreur inconnue'
+                });
+            }
         },
     });
 

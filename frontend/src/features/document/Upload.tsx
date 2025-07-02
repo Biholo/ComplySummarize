@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { AlertCircle, CheckCircle, FileText, Upload as UploadIcon, X } from 'lucide-react';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 
 import { Badge } from '@/components/ui/Badge/Badge';
@@ -14,6 +15,7 @@ interface UploadFile {
     id: string;
     status: 'pending' | 'uploading' | 'success' | 'error';
     progress: number;
+    documentId?: string; // ID du document créé côté backend
 }
 
 const Upload = () => {
@@ -23,6 +25,7 @@ const Upload = () => {
     // Utilisation des hooks React Query
     const uploadDocumentMutation = useUploadDocument();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -68,9 +71,11 @@ const Upload = () => {
             f.id === uploadFileItem.id ? { ...f, status: 'uploading', progress: 0 } : f
         ));
 
+        let progressInterval: NodeJS.Timeout | undefined;
+
         try {
             // Simulation de progression (React Query ne fournit pas de progress par défaut)
-            const progressInterval = setInterval(() => {
+            progressInterval = setInterval(() => {
                 setFiles(prev => prev.map(f => {
                     if (f.id === uploadFileItem.id && f.progress < 90) {
                         return { ...f, progress: f.progress + 10 };
@@ -85,18 +90,33 @@ const Upload = () => {
             // Nettoyage de l'interval
             clearInterval(progressInterval);
             
-            // Mise à jour du statut en "success"
+            // Récupération de l'ID du document créé depuis la réponse
+            const documentId = result.id;
+            
+            // Mise à jour du statut en "success" avec l'ID du document
             setFiles(prev => prev.map(f => 
                 f.id === uploadFileItem.id 
-                    ? { ...f, status: 'success', progress: 100 }
+                    ? { ...f, status: 'success', progress: 100, documentId }
                     : f
             ));
             
             // Invalidation du cache des documents pour rafraîchir la liste
             queryClient.invalidateQueries({ queryKey: ['documents'] });
             
+            // Redirection automatique après 2 secondes si un ID est disponible
+            if (documentId) {
+                setTimeout(() => {
+                    navigate(`/document/${documentId}`);
+                }, 2000);
+            }
+            
         } catch (error) {
             console.error('Erreur lors de l\'upload:', error);
+            
+            // Nettoyage de l'interval en cas d'erreur
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
             
             // Mise à jour du statut en "error"
             setFiles(prev => prev.map(f => 
@@ -125,7 +145,7 @@ const Upload = () => {
             case 'uploading':
                 return <Badge variant="processing">Upload...</Badge>;
             case 'success':
-                return <Badge variant="success">Terminé</Badge>;
+                return <Badge variant="success">Terminé - Redirection...</Badge>;
             case 'error':
                 return <Badge variant="error">Erreur</Badge>;
             default:
