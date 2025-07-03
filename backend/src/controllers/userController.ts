@@ -5,7 +5,7 @@ import { asyncHandler } from '@/utils/asyncHandler';
 import { jsonResponse, notFoundResponse } from '@/utils/jsonResponse';
 import { logger } from '@/utils/logger';
 
-import { GetAllUsersDto, IdParams, UpdateUserDto, BasicUserDto, idSchema, getAllUsersSchema, updateUserSchema } from '@shared/dto';
+import { GetAllUsersDto, IdParams, UpdateUserDto, BasicUserDto, getAllUsersSchema, updateUserSchema, idParamsSchema } from '@shared/dto';
 
 class UserController {
     private logger = logger.child({
@@ -32,7 +32,7 @@ class UserController {
     });
 
     public getUserById = asyncHandler<unknown, unknown, IdParams, BasicUserDto>({
-        paramsSchema: idSchema,
+        paramsSchema: idParamsSchema,
         logger: this.logger,
         handler: async (request, reply): Promise<ApiResponse<BasicUserDto | void> | void> => {
             const { id } = request.params;
@@ -50,7 +50,7 @@ class UserController {
 
     public updateUser = asyncHandler<UpdateUserDto, unknown, IdParams>({
         bodySchema: updateUserSchema,
-        paramsSchema: idSchema,
+        paramsSchema: idParamsSchema,
         logger: this.logger,
         handler: async (request, reply): Promise<ApiResponse<BasicUserDto | void> | void> => {
             const { id } = request.params;
@@ -69,7 +69,7 @@ class UserController {
     });
 
     public deleteUser = asyncHandler<unknown, unknown, IdParams>({
-        paramsSchema: idSchema,
+        paramsSchema: idParamsSchema,
         logger: this.logger,
         handler: async (request, reply): Promise<ApiResponse<void> | void> => {
             const { id } = request.params;

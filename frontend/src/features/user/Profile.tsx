@@ -1,27 +1,68 @@
 import { motion } from 'framer-motion';
 import {
+    CheckCircle,
     Eye,
     EyeOff,
     Lock,
     Save,
     Upload,
-    User
+    User,
+    X
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { useUpdatePassword } from '@/api/queries/authQueries';
+import { useUpdateUser } from '@/api/queries/userQueries';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button/Button';
 import { Card } from '@/components/ui/Card/Card';
+import { useAuthStore } from '@/stores/authStore';
+import { Role } from '@shared/enums';
 
 export default function Profile() {
     const [activeTab, setActiveTab] = useState('profile');
     const [showPassword, setShowPassword] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const { user } = useAuthStore();
     
     const [profileData, setProfileData] = useState({
-        firstName: 'Jean',
-        lastName: 'Dupont',
-        email: 'jean.dupont@company.com',
+        firstName: '',
+        lastName: '',
+        email: '',
     });
+
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+
+    const updateUserMutation = useUpdateUser();
+    const updatePasswordMutation = useUpdatePassword();
+
+    // Initialiser les données du profil avec les données du store
+    useEffect(() => {
+        if (user) {
+            setProfileData({
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                email: user.email || '',
+            });
+        }
+    }, [user]);
+
+    // Fonction pour afficher un message de succès
+    const showSuccessMessage = (message: string) => {
+        setSuccessMessage(message);
+        setTimeout(() => setSuccessMessage(''), 5000);
+    };
+
+    // Fonction pour afficher un message d'erreur
+    const showErrorMessage = (message: string) => {
+        setErrorMessage(message);
+        setTimeout(() => setErrorMessage(''), 5000);
+    };
 
     const tabs = [
         { id: 'profile', label: 'Profil', icon: User },
@@ -32,12 +73,98 @@ export default function Profile() {
         setProfileData(prev => ({ ...prev, [field]: value }));
     };
 
+    const handlePasswordUpdate = (field: string, value: string) => {
+        setPasswordData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSaveProfile = async () => {
+        if (!user?.id) return;
+
+        try {
+            await updateUserMutation.mutateAsync({
+                userId: user.id,
+                user: {
+                    firstName: profileData.firstName,
+                    lastName: profileData.lastName,
+                    email: profileData.email,
+                    password: 'dummy' // Requis par le DTO mais non utilisé
+                }
+            });
+            showSuccessMessage('Profil mis à jour avec succès !');
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du profil:', error);
+            showErrorMessage('Erreur lors de la mise à jour du profil');
+        }
+    };
+
+    const handleSavePassword = async () => {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            showErrorMessage('Les mots de passe ne correspondent pas');
+            return;
+        }
+
+        try {
+            await updatePasswordMutation.mutateAsync({
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
+                confirmPassword: passwordData.confirmPassword,
+            });
+            
+            // Réinitialiser les champs
+            setPasswordData({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+            });
+            
+            showSuccessMessage('Mot de passe mis à jour avec succès !');
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du mot de passe:', error);
+            showErrorMessage('Erreur lors de la mise à jour du mot de passe');
+        }
+    };
+
     const getFullName = () => `${profileData.firstName} ${profileData.lastName}`;
-    const getInitials = () => `${profileData.firstName[0]}${profileData.lastName[0]}`;
+    const getInitials = () => `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`;
+
+    const isProfileSaving = updateUserMutation.isPending;
+    const isPasswordSaving = updatePasswordMutation.isPending;
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-            <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+            {/* Messages de notification */}
+            {(successMessage || errorMessage) && (
+                <motion.div
+                    initial={{ opacity: 0, y: -50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -50 }}
+                    className="fixed top-4 right-4 z-50"
+                >
+                    <div className={`flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg ${
+                        successMessage 
+                            ? 'bg-green-50 border border-green-200 text-green-800' 
+                            : 'bg-red-50 border border-red-200 text-red-800'
+                    }`}>
+                        {successMessage && <CheckCircle className="h-5 w-5 text-green-600" />}
+                        <span className="font-medium">
+                            {successMessage || errorMessage}
+                        </span>
+                        <button
+                            onClick={() => {
+                                setSuccessMessage('');
+                                setErrorMessage('');
+                            }}
+                            className={`p-1 rounded-full hover:bg-opacity-20 ${
+                                successMessage ? 'hover:bg-green-200' : 'hover:bg-red-200'
+                            }`}
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+
+            <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -53,11 +180,25 @@ export default function Profile() {
                         </p>
                     </div>
                     
-                    <Button variant="primary" className="w-full lg:w-auto">
-                        <Save className="mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Sauvegarder les modifications</span>
-                        <span className="sm:hidden">Sauvegarder</span>
-                    </Button>
+                    <div className="flex items-center gap-4">
+                        {activeTab === 'profile' && (
+                            <Button 
+                                variant="primary" 
+                                size="lg"
+                                className="w-full lg:w-auto"
+                                onClick={handleSaveProfile}
+                                disabled={isProfileSaving}
+                            >
+                                <Save className="mr-2 h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                    {isProfileSaving ? 'Sauvegarde...' : 'Sauvegarder les modifications'}
+                                </span>
+                                <span className="sm:hidden">
+                                    {isProfileSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                </span>
+                            </Button>
+                        )}
+                    </div>
                 </motion.div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
@@ -68,7 +209,7 @@ export default function Profile() {
                         transition={{ delay: 0.1 }}
                         className="lg:col-span-1"
                     >
-                        <Card className="p-4">
+                        <Card className="p-4 sm:p-6">
                             {/* Mobile: Horizontal tabs */}
                             <nav className="flex lg:flex-col lg:space-y-2 space-x-2 lg:space-x-0 overflow-x-auto lg:overflow-visible">
                                 {tabs.map((tab) => {
@@ -116,7 +257,9 @@ export default function Profile() {
                                             <p className="text-gray-600 mt-1">{profileData.email}</p>
                                             <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
                                                 <Badge variant="success">Compte vérifié</Badge>
-                                                <Badge variant="info">Premium</Badge>
+                                                {user?.roles?.includes(Role.ADMIN) && (
+                                                    <Badge variant="info">Admin</Badge>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -180,6 +323,8 @@ export default function Profile() {
                                             <div className="relative">
                                                 <input
                                                     type={showPassword ? 'text' : 'password'}
+                                                    value={passwordData.currentPassword}
+                                                    onChange={(e) => handlePasswordUpdate('currentPassword', e.target.value)}
                                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors pr-12"
                                                     placeholder="Entrez votre mot de passe actuel"
                                                 />
@@ -199,6 +344,8 @@ export default function Profile() {
                                             </label>
                                             <input
                                                 type="password"
+                                                value={passwordData.newPassword}
+                                                onChange={(e) => handlePasswordUpdate('newPassword', e.target.value)}
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                                 placeholder="Entrez un nouveau mot de passe"
                                             />
@@ -210,13 +357,21 @@ export default function Profile() {
                                             </label>
                                             <input
                                                 type="password"
+                                                value={passwordData.confirmPassword}
+                                                onChange={(e) => handlePasswordUpdate('confirmPassword', e.target.value)}
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                                 placeholder="Confirmez le nouveau mot de passe"
                                             />
                                         </div>
                                         
-                                        <Button variant="primary" className="w-full sm:w-auto">
-                                            Mettre à jour le mot de passe
+                                        <Button 
+                                            variant="primary" 
+                                            size="lg"
+                                            className="w-full sm:w-auto"
+                                            onClick={handleSavePassword}
+                                            disabled={isPasswordSaving || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                                        >
+                                            {isPasswordSaving ? 'Mise à jour...' : 'Mettre à jour le mot de passe'}
                                         </Button>
                                     </div>
                                 </Card>

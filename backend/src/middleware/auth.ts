@@ -1,6 +1,6 @@
 import { internalServerError, unauthorizedResponse } from '@/utils/jsonResponse';
 
-import { User } from '@shared/dto';
+import { BasicUserDto } from '@shared/dto';
 import dotenv from 'dotenv';
 import { FastifyReply, FastifyRequest, HookHandlerDoneFunction } from 'fastify';
 import jwt from 'jsonwebtoken';
@@ -19,6 +19,7 @@ export const isAuthenticated = (
     res: FastifyReply,
     done: HookHandlerDoneFunction
 ): void => {
+    
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
         unauthorizedResponse(res, 'Unauthorized');
@@ -26,7 +27,7 @@ export const isAuthenticated = (
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as User;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as BasicUserDto;
         req.user = decoded;
         done();
     } catch (error) {
@@ -58,6 +59,6 @@ export const hasToken = (
 
 declare module 'fastify' {
     interface FastifyRequest {
-        user: User;
+        user: BasicUserDto;
     }
 }

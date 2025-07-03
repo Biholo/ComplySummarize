@@ -6,14 +6,19 @@ import { minioService } from '@/services';
 import { appLogger } from '@/utils/logger';
 import { initSwagger } from '@/utils/swaggerUtils';
 
+import { PrismaClient } from '@/config/client';
+import { initializeApplication } from '@/config/initApplication';
 import cors from '@fastify/cors';
 import dotenv from 'dotenv';
 import Fastify, { FastifyInstance } from 'fastify';
 import metricsPlugin from 'fastify-metrics';
+const prisma = new PrismaClient();
 
 // Loading environment variables
 dotenv.config();
 const buildApp = async () => {
+    
+    await initializeApplication(prisma);
     // Creating the Fastify instance
     const app: FastifyInstance = Fastify({
         logger: false,
@@ -25,6 +30,11 @@ const buildApp = async () => {
     // Registering the plugins
     app.register(cors, {
         origin: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+        credentials: true,
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
     });
 
     // Registering the request and response logging middleware

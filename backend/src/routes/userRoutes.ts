@@ -3,7 +3,7 @@ import { verifyAccess } from '@/middleware';
 import { isAuthenticated } from '@/middleware/auth';
 import { createSwaggerSchema } from '@/utils/swaggerUtils';
 
-import { GetAllUsers, UpdateUser } from '@shared/dto';
+import { getAllUsersSchema, updateUserSchema } from '@shared/dto';
 import { Role } from '@shared/enums';
 import { FastifyInstance } from 'fastify';
 
@@ -23,7 +23,7 @@ export async function userRoutes(fastify: FastifyInstance) {
             ],
             null,
             true,
-            GetAllUsers,
+            getAllUsersSchema,
             ['Users']
         ),
         preHandler: [isAuthenticated, verifyAccess(Role.ADMIN)],
@@ -66,7 +66,7 @@ export async function userRoutes(fastify: FastifyInstance) {
                     status: 500,
                 },
             ],
-            UpdateUser,
+            updateUserSchema,
             true,
             null,
             ['Users']
