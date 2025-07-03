@@ -34,9 +34,6 @@ class RedisService implements ICacheService {
     });
 
     constructor() {
-        if (!process.env.REDIS_HOST) {
-            throw new Error('REDIS_HOST environment variable is required');
-        }
 
         this.client = new Redis({
             host: process.env.REDIS_HOST,

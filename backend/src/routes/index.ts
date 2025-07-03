@@ -1,3 +1,5 @@
+export * from './applicationParameterRoutes';
 export * from './authRoutes';
-export * from './userRoutes';
 export * from './registerRoutes';
+export * from './userRoutes';
+

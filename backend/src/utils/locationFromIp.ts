@@ -14,9 +14,6 @@ export async function getLocationFromIp(ip: string): Promise<Location | null> {
   try {
     const response = await axios.get(`http://ip-api.com/json/${ip}`);
     const { country, regionName, city, lat, lon, isp } = response.data;
-
-    console.log('\n\n response.data', response.data)
-
     return {
       ip,
       country,

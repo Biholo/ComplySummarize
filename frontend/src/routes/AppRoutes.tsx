@@ -10,6 +10,8 @@ import Loader from '@/components/ui/Loader/Loader';
 import { useSidebar } from '@/contexts/SidebarContext';
 
 import Error from '@/features/Error';
+
+import Admin from '@/features/admin/Admin';
 import Login from '@/features/auth/Login';
 import Register from '@/features/auth/Register';
 import Dashboard from '@/features/document/Dashboard';
@@ -59,6 +61,7 @@ const AppRoutes = () => {
                         <Route path="/document" element={<IndexDocument />} />
                         <Route path="/document/:id" element={<DocumentDetail />} />
                         <Route path="/upload" element={<Upload />} />
+                        <Route path="/admin" element={<Admin />} />
                     </Route>
 
                     {/* Route par défaut */}

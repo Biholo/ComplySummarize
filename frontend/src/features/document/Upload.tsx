@@ -155,17 +155,24 @@ const Upload = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-            <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
+            <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+                {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
                 >
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                        Upload de documents
-                    </h1>
-                    <p className="text-gray-600">
-                        Téléversez vos documents PDF pour générer des synthèses automatiques
-                    </p>
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                            Upload de documents
+                        </h1>
+                        <p className="text-gray-600 mt-2">
+                            Téléversez vos documents PDF pour générer des synthèses automatiques
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {/* Espace réservé pour les actions futures */}
+                    </div>
                 </motion.div>
 
                 {/* Zone de drop */}
