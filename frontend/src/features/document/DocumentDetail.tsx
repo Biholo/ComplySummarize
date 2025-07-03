@@ -7,12 +7,11 @@ import {
     Calendar,
     CheckCircle,
     Clock,
-    Download,
+    Eye,
     FileText,
     Lightbulb,
     Loader2,
     RotateCcw,
-    Eye,
     Tag,
     Target,
     User
@@ -23,8 +22,8 @@ import { useGetDocumentById } from '@/api/queries/documentQueries';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button/Button';
 import { Card } from '@/components/ui/Card/Card';
-import { DocumentCategory, DocumentStatus } from '@shared/enums/documentEnums';
 import { useAuthStore } from '@/stores/authStore';
+import { DocumentCategory, DocumentStatus } from '@shared/enums/documentEnums';
 
 const getPriorityBadge = (priority: string) => {
     switch (priority) {
@@ -120,7 +119,7 @@ export default function DocumentDetail() {
     if (isLoading) {
         return (
             <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                     <Card className="p-8 sm:p-12 text-center">
                         <Loader2 className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400 mb-4 sm:mb-6 animate-spin" />
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
@@ -138,7 +137,7 @@ export default function DocumentDetail() {
     if (error || !document) {
         return (
             <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                     <Card className="p-8 sm:p-12 text-center">
                         <AlertCircle className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-red-500 mb-4 sm:mb-6" />
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
@@ -169,12 +168,12 @@ export default function DocumentDetail() {
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-            <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
+            <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                    className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
                 >
                     <div className="flex items-center space-x-4">
                         <Button variant="ghost" size="sm" asChild>
@@ -184,25 +183,25 @@ export default function DocumentDetail() {
                                 <span className="sm:hidden">Retour</span>
                             </Link>
                         </Button>
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                Détail du document
+                            </h1>
+                            <p className="text-gray-600 mt-2">
+                                Consultez l'analyse détaillée de votre document
+                            </p>
+                        </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                
+                    <div className="flex items-center gap-4">
                         {document.url && (
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
-                                    <a href={document.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        <span className="hidden sm:inline">Voir</span>
-                                    </a>
-                                </Button>
-                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
-                                    <a href={document.url} download={document.originalName} className="flex items-center">
-                                        <Download className="h-4 w-4 mr-2" />
-                                        <span className="hidden sm:inline">Télécharger</span>
-                                    </a>
-                                </Button>
-                            </div>
+                            <Button variant="outline" size="lg" asChild>
+                                <a href={document.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    <span className="hidden sm:inline">Voir le document</span>
+                                    <span className="sm:hidden">Voir</span>
+                                </a>
+                            </Button>
                         )}
                     </div>
                 </motion.div>
@@ -357,10 +356,6 @@ export default function DocumentDetail() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                                                    <span className="hidden sm:inline">Marquer comme fait</span>
-                                                    <span className="sm:hidden">Fait</span>
-                                                </Button>
                                             </div>
                                         </motion.div>
                                     );

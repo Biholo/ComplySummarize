@@ -4,10 +4,8 @@ import {
     Calendar,
     CheckCircle,
     Clock,
-    Download,
     Eye,
     FileText,
-    Filter,
     Loader2,
     Plus,
     RotateCcw,
@@ -18,7 +16,7 @@ import {
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { useGetAllDocuments } from '@/api/queries/documentQueries';
+import { useDeleteDocument, useGetAllDocuments } from '@/api/queries/documentQueries';
 import { Badge } from '@/components/ui/Badge/Badge';
 import { Button } from '@/components/ui/Button/Button';
 import { Card } from '@/components/ui/Card/Card';
@@ -52,6 +50,7 @@ const getStatusIcon = (status: string) => {
 
 export default function Dashboard() {
     const [searchTerm, setSearchTerm] = useState('');
+    const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
     
     // Utilisation des vraies queries API
     const { data: documentsResponse, isLoading, error, refetch } = useGetAllDocuments({ 
@@ -59,6 +58,8 @@ export default function Dashboard() {
         limit: 50,
         search: searchTerm || undefined 
     });
+
+    const { mutate: deleteDocument, isPending: isDeleting } = useDeleteDocument();
 
     const documents = documentsResponse || [];
 
@@ -93,6 +94,18 @@ export default function Dashboard() {
         return `${sizeInMB.toFixed(1)} MB`;
     };
 
+    const handleDeleteDocument = (documentId: string) => {
+        deleteDocument(documentId, {
+            onSuccess: () => {
+            },
+            onError: (error) => {
+                console.error('Erreur lors de la suppression:', error);
+                alert('Erreur lors de la suppression du document');
+            }
+        });
+        
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
             <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
@@ -110,17 +123,19 @@ export default function Dashboard() {
                             Gérez vos documents et consultez les synthèses générées par l'IA
                         </p>
                     </div>
-                    <Button
-                        size="lg"
-                        className="w-full lg:w-auto"
-                        asChild
-                    >
-                        <Link to="/upload" className="flex items-center justify-center">
-                            <Plus className="mr-2 h-5 w-5" />
-                            <span className="hidden sm:inline">Uploader un document</span>
-                            <span className="sm:hidden">Uploader</span>
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-4">
+                        <Button
+                            size="lg"
+                            className="w-full lg:w-auto"
+                            asChild
+                        >
+                            <Link to="/upload" className="flex items-center justify-center">
+                                <Plus className="mr-2 h-5 w-5" />
+                                <span className="hidden sm:inline">Uploader un document</span>
+                                <span className="sm:hidden">Uploader</span>
+                            </Link>
+                        </Button>
+                    </div>
                 </motion.div>
 
                 {/* Stats Cards */}
@@ -204,11 +219,7 @@ export default function Dashboard() {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                 />
-                            </div>
-                            <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
-                                <Filter className="h-4 w-4" />
-                                <span className="hidden sm:inline">Filtres</span>
-                            </Button>
+                            </div>                
                         </div>
                     </Card>
                 </motion.div>
@@ -293,12 +304,7 @@ export default function Dashboard() {
                                                         <span className="hidden sm:inline">Voir</span>
                                                     </Link>
                                                 </Button>
-                                                
-                                                {document.status === DocumentStatus.COMPLETED && (
-                                                    <Button variant="ghost" size="sm">
-                                                        <Download className="h-4 w-4" />
-                                                    </Button>
-                                                )}
+ 
                                                 
                                                 {document.status === DocumentStatus.ERROR && (
                                                     <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
@@ -306,8 +312,18 @@ export default function Dashboard() {
                                                     </Button>
                                                 )}
                                                 
-                                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                                                    <Trash2 className="h-4 w-4" />
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="text-red-600 hover:text-red-700"
+                                                    onClick={() => handleDeleteDocument(document.id)}
+                                                    disabled={isDeleting}
+                                                >
+                                                    {isDeleting ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
                                                 </Button>
                                             </div>
                                         </div>

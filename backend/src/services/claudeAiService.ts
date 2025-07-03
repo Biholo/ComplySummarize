@@ -1,6 +1,4 @@
-type ClaudeResponse = {
-  text: string;
-};
+import { applicationParameterRepository } from '@/repositories/applicationParameterRepository';
 
 type ClaudeRequest = {
   model: string;
@@ -20,13 +18,20 @@ type MessageContent = {
   text?: string;
 };
 
+
 class ClaudeService {
-  private apiKey: string;
   private apiUrl: string;
 
   constructor() {
-    this.apiKey = process.env.CLAUDE_API_KEY || '';
     this.apiUrl = 'https://api.anthropic.com/v1/messages';
+  }
+
+  private async getApiKey(): Promise<string> {
+    const apiKey = await applicationParameterRepository.getClaudeApiKey();
+    if (!apiKey) {
+      throw new Error('Claude API key not configured');
+    }
+    return apiKey;
   }
 
   // Méthode existante pour compatibilité (prompt text seul)
@@ -69,11 +74,12 @@ class ClaudeService {
   // Méthode privée pour exécuter les requêtes
   private async executeRequest(request: ClaudeRequest): Promise<string> {
     try {
+      const apiKey = await this.getApiKey();
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
+          'x-api-key': apiKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify(request),
@@ -81,7 +87,6 @@ class ClaudeService {
       
       if (!response.ok) {
         const responseBody = await response.text();
-        console.log("RESPONSE BODY : ", responseBody);
         throw new Error(`API request failed with status ${response.status}`);
       }
       

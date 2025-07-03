@@ -1,7 +1,7 @@
 import { authService } from "@/api/authService";
 import queryClient from "@/configs/queryClient";
 import { useAuthStore } from "@/stores/authStore";
-import {AuthResponse } from "@/types";
+import { AuthResponse } from "@/types";
 import { LoginDto, ResetPasswordDto, UpdatePasswordDto } from "@shared/dto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from 'js-cookie';
@@ -33,7 +33,6 @@ export const useRegister = () => {
 
         onSuccess: async (response: AuthResponse) => {
             login(response.accessToken, response.refreshToken);
-            console.log('Registration successful');
         },
     });
 };
@@ -70,7 +69,6 @@ export const useLogin = () => {
 
         onSuccess: async (response: AuthResponse) => {
             login(response.accessToken, response.refreshToken);
-            console.log('Login successful');
         },
 
     });
@@ -106,7 +104,6 @@ export const useAutoLogin = () => {
                             login(newTokens.accessToken, newTokens.refreshToken);
                             setUser(userData?.data || null);
                             setIsAuthenticated(true);
-                            console.log('Auto login successful with refreshed token');
                             return true;
                         } catch (refreshError) {
                             console.error('Failed to refresh token, user needs to log in again.');
@@ -116,7 +113,6 @@ export const useAutoLogin = () => {
                 }
             } else {
                 handleLogout();
-                console.log('No token available in localStorage');
             }
             return false;
         },

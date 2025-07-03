@@ -2,6 +2,7 @@
 
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuthStore } from '@/stores/authStore';
+import { Role } from '@shared/enums';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     ChevronLeft,
@@ -10,6 +11,7 @@ import {
     LogOut,
     Menu,
     Settings,
+    Shield,
     Sparkles,
     Upload,
     X
@@ -22,6 +24,7 @@ interface SidebarItem {
     icon: React.ReactNode;
     label: string;
     href: string;
+    roles?: string[];
 }
 
 export default function Sidebar() {
@@ -30,12 +33,20 @@ export default function Sidebar() {
     const location = useLocation();
     const { user, logout } = useAuthStore();
 
-    const menuItems: SidebarItem[] = [
+    const allMenuItems: SidebarItem[] = [
         { icon: <Home size={20} />, label: 'Dashboard', href: '/dashboard' },
         { icon: <FileText size={20} />, label: 'Documents', href: '/document' },
         { icon: <Upload size={20} />, label: 'Upload', href: '/upload' },
         { icon: <Settings size={20} />, label: 'Profil & Paramètres', href: '/profile' },
+        { icon: <Shield size={20} />, label: 'Administration', href: '/admin', roles: ['ROLE_ADMIN'] },
     ];
+
+    // Filter menu items based on user roles
+    const menuItems = allMenuItems.filter(item => {
+        if (!item.roles) return true;
+        if (!user?.roles) return false;
+        return item.roles.some((role: string) => user.roles.includes(role as Role));
+    });
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -131,13 +142,13 @@ export default function Sidebar() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-medium text-gray-900 truncate">
-                                                    User Account
+                                                    {user?.firstName} {user?.lastName}
                                                 </div>
                                                 <div className="text-xs text-gray-500">
-                                                    user@example.com
+                                                    {user?.email}
                                                 </div>
                                             </div>
-                                            <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                                            <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={logout}>
                                                 <LogOut size={16} />
                                             </button>
                                         </div>
@@ -250,7 +261,7 @@ export default function Sidebar() {
                         )}
                     </AnimatePresence>
                     {isExpanded && (
-                        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={logout}>
                             <LogOut size={16} />
                         </button>
                     )}

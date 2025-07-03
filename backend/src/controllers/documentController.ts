@@ -5,14 +5,17 @@ import { asyncHandler } from '@/utils/asyncHandler';
 import { jsonResponse, notFoundResponse } from '@/utils/jsonResponse';
 import { logger } from '@/utils/logger';
 
+import { actionSuggestionRepository } from '@/repositories/actionSuggestionRepository';
+import { keyPointRepository } from '@/repositories/keyPointRepository';
 import { mediaRepository } from '@/repositories/mediaRepository';
-import { claudeService } from '@/services/claudeAiService';
 import { minioService } from '@/services/minioService';
 import { PromptService } from '@/services/promptService';
 import { DocumentDto, documentSchema, FilterDocumentDto, filterDocumentSchema, IdParams, idParamsSchema } from '@shared/dto';
 import { DocumentCategory, DocumentStatus } from '@shared/enums/documentEnums';
-import { keyPointRepository } from '@/repositories/keyPointRepository';
-import { actionSuggestionRepository } from '@/repositories/actionSuggestionRepository';
+import { applicationParameterRepository } from '@/repositories/applicationParameterRepository';
+import { claudeService } from '@/services/claudeAiService';
+import { geminiService } from '@/services/geminiApiService';
+import { mistralService } from '@/services/mistralApiService';
 
 class DocumentController {
     private logger = logger.child({
@@ -57,7 +60,6 @@ class DocumentController {
         logger: this.logger,
         handler: async (request: any, reply: any): Promise<ApiResponse<DocumentDto | void> | void> => {
             try {
-                console.log('request.body :', request.body);
                 // Démarrage du compteur de temps de traitement
                 const startTime = Date.now();
                 // ==========================================
@@ -152,17 +154,33 @@ class DocumentController {
                 });
 
                 // ==========================================
-                // ÉTAPE 7: ANALYSE AVEC CLAUDE
+                // ÉTAPE 7: ANALYSE AVEC LE MODÈLE AI CONFIGURÉ
                 // ==========================================
                 const pdfBuffer = await minioService.downloadFile(fileUrl);
                 const pdfBase64 = pdfBuffer.toString('base64');
 
-                const analysisResponse = await claudeService.analyzeDocument(prompt, pdfBase64);
-                console.log('analysisResponse :', analysisResponse);
+                const aiModel = await applicationParameterRepository.getAiModel();
+
+                let aiService;
+                switch (aiModel) {
+                    case 'claude':
+                        aiService = claudeService;
+                        break;
+                    case 'gemini':
+                        aiService = geminiService;
+                        break;
+                    case 'mistral':
+                        aiService = mistralService;
+                        break;
+                    default:
+                        aiService = claudeService;
+                        break;
+                }
+
+                const analysisResponse = await aiService.analyzeDocument(prompt, pdfBase64);
+
 
                 const analysis = JSON.parse(analysisResponse);
-
-                console.log('analysis :', analysis);
 
                
                 for (const keyPoint of analysis.keyPoints) {
@@ -219,7 +237,6 @@ class DocumentController {
                     stack: error instanceof Error ? error.stack : undefined,
                     userId: request.user?.id
                 });
-                console.log('error :', error);
 
                 // En cas d'erreur, on essaie de nettoyer les ressources créées
                 // TODO: Ajouter la logique de nettoyage si nécessaire

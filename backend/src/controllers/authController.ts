@@ -36,6 +36,7 @@ import {
     UpdateUserDto,
     AuthTokenDto,
 } from '@shared/dto';
+import { Role } from '@shared/enums';
 import bcrypt from 'bcryptjs';
 import { verify } from 'jsonwebtoken';
 
@@ -135,7 +136,6 @@ class AuthController {
                         }))
                     );
                 } catch (error) {
-                    console.log('\n\n error', error)
                     this.logger.error({
                         msg: 'Erreur lors de l\'envoi de l\'email de nouveau appareil',
                         error: error
@@ -169,8 +169,6 @@ class AuthController {
             }
 
             const isPasswordValid = await bcrypt.compare(currentPassword, existingUser.password);
-
-            console.log('\n\n isPasswordValid', isPasswordValid)
 
             if (!isPasswordValid) {
                 return unauthorizedResponse(reply, 'Invalid password');
@@ -239,7 +237,6 @@ class AuthController {
         logger: this.logger,
         handler: async (request, reply): Promise<ApiResponse<void> | void> => {
             const { token, currentPassword, newPassword } = request.body;
-            console.log('\n\n token', token)
 
             const resetToken = await authService.findByToken(token);
             
@@ -306,7 +303,7 @@ class AuthController {
                 return unauthorizedResponse(reply, 'Unauthorized');
             }
 
-            if (request.query.userId !== request.user.id && request.user.roles !== 'ROLE_ADMIN') {
+            if (request.query.userId !== request.user.id && request.user.roles.includes(Role.ADMIN)) {
                 return unauthorizedResponse(reply, 'Unauthorized');
             }
 

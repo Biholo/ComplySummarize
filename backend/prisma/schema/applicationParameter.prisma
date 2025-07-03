@@ -1,0 +1,18 @@
+model ApplicationParameter {
+    id          String    @id @default(uuid())
+    key         Key       @unique
+    value       String
+    category    String    @default("general")
+    isSystem    Boolean   @default(false)
+    createdAt   DateTime  @default(now()) @map("created_at")
+    updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+    @@map("application_parameters")
+  }
+  
+  enum Key {
+    CLAUDE_API_KEY
+    MISTRAL_API_KEY
+    GEMINI_API_KEY
+    AI_MODEL
+  }

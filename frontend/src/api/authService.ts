@@ -1,12 +1,11 @@
-import Cookies from 'js-cookie';
 import { api } from '@/api/interceptor';
-import { 
-    ApiResponse, 
-    RefreshTokenRequest,
+import {
+    ApiResponse,
     AuthResponse,
+    RefreshTokenRequest,
 } from '@/types';
-import { RequestPasswordResetDto, ResetPasswordDto, UpdatePasswordDto, AuthTokenDto, RegisterDto, LoginSchema } from '@shared/dto';
-import { BasicUserDto } from '@shared/dto';
+import { AuthTokenDto, BasicUserDto, LoginSchema, RegisterDto, RequestPasswordResetDto, ResetPasswordDto, UpdatePasswordDto } from '@shared/dto';
+import Cookies from 'js-cookie';
 
 class AuthService {
     public async registerUser(user: RegisterDto): Promise<AuthResponse> {
@@ -21,15 +20,12 @@ class AuthService {
 
     public async loginUser(credentials: LoginSchema): Promise<AuthResponse> {
         const response = await api.fetchRequest('/api/auth/login', 'POST', credentials);
-        console.log('Credentials: ', credentials)
         if (response.accessToken) {
             Cookies.set('accessToken', response.accessToken, { expires: 1 });
 
             if (credentials.rememberMe) {
-                console.log('rememberMe', credentials.rememberMe)
                 Cookies.set('refreshToken', response.refreshToken, { expires: 30 });
             } else {
-                console.log('rememberMe', credentials.rememberMe)
             }
         }
         return response;

@@ -6,17 +6,16 @@ class Interceptor {
 
     constructor() {
         this.url = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        console.log('API Base URL:', this.url);
     }
 
     public getUrl(): string {
         return this.url;
     }
 
-    private createHeaders(includeAuth: boolean = false, isFormData: boolean = false): HeadersInit {
+    private createHeaders(includeAuth: boolean = false, isFormData: boolean = false, hasBody: boolean = true): HeadersInit {
         const headers: HeadersInit = {};
 
-        if (!isFormData) {
+        if (hasBody && !isFormData) {
             headers['Content-Type'] = 'application/json';
         }
 
@@ -37,13 +36,13 @@ class Interceptor {
         includeAuth: boolean = false
     ): Promise<any> {
         const isFormData = body instanceof FormData;
+        const hasBody = body !== null && body !== undefined;
         const fullUrl = `${this.url}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-        console.log('Making request to:', fullUrl);
 
         const options: RequestInit = {
             method,
             headers: {
-                ...this.createHeaders(includeAuth, isFormData),
+                ...this.createHeaders(includeAuth, isFormData, hasBody),
             },
         };
 
@@ -85,39 +84,63 @@ class Interceptor {
         includeAuth: boolean = false
     ): Promise<any> {
         const isFormData = body instanceof FormData;
+        const hasBody = body !== null && body !== undefined;
         const fullUrl = `${this.url}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-
+        
+        const headers = this.createHeaders(includeAuth, isFormData, hasBody);
+        
         const options: RequestInit = {
             method,
-            headers: this.createHeaders(includeAuth, isFormData),
+            headers,
         };
 
-        if (body) {
-            options.body = isFormData ? body : JSON.stringify(body);
+        if (body && method !== 'GET') {
+            if (isFormData) {
+                options.body = body;
+            } else {
+                options.body = JSON.stringify(body);
+            }
         }
 
         try {
             const response = await fetch(fullUrl, options);
+            
+
 
             if (!response.ok) {
                 let errorData;
                 try {
-                    errorData = await response.json();
-                } catch (jsonError) {
+                    const errorText = await response.text();
+                    console.error(`❌ ${method} Error Response:`, errorText);
+                    
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch (parseError) {
+                        errorData = { message: errorText || response.statusText };
+                    }
+                } catch (textError) {
                     errorData = { message: response.statusText };
                 }
-                throw new Error(
-                    errorData.message || `${method} request failed: ${response.statusText}`
-                );
+                
+                const errorMessage = errorData.message || `${method} request failed: ${response.statusText}`;
+                console.error(`❌ ${method} Request Failed:`, errorMessage);
+                throw new Error(errorMessage);
             }
 
             try {
-                return await response.json();
+                const responseData = await response.json();
+                
+
+                
+                return responseData;
             } catch (jsonError) {
                 return { success: true };
             }
         } catch (error: any) {
-            console.error('Request error:', error);
+            console.error(`❌ ${method} Request Error:`, error);
+            
+
+            
             throw new Error(error.message || 'Une erreur est survenue lors de la requête');
         }
     }
